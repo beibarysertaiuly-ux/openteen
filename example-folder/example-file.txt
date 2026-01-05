@@ -1,0 +1,2 @@
+This is an example file inside the example-folder directory.
+
