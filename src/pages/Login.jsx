@@ -7,7 +7,7 @@ const Login = () => {
   const navigate = useNavigate()
   const { theme } = useTheme()
   const { loginUser, users } = useStore()
-  
+
   const isDark = theme === 'dark'
   const bgColor = isDark ? 'bg-dark' : 'bg-white'
   const textColor = isDark ? 'text-white' : 'text-black'
@@ -17,8 +17,6 @@ const Login = () => {
   const [emailOrUsername, setEmailOrUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [showTwoFactor, setShowTwoFactor] = useState(false)
-  const [twoFactorCode, setTwoFactorCode] = useState('')
 
   const handleLogin = async () => {
     if (!emailOrUsername || !password) {
@@ -27,11 +25,11 @@ const Login = () => {
     }
 
     // Find user by email or username
-    const user = users.find(u => 
-      u.email.toLowerCase() === emailOrUsername.toLowerCase() || 
+    const user = users.find(u =>
+      u.email.toLowerCase() === emailOrUsername.toLowerCase() ||
       u.username.toLowerCase() === emailOrUsername.toLowerCase()
     )
-    
+
     if (!user) {
       setError('User not found')
       return
@@ -43,16 +41,10 @@ const Login = () => {
       return
     }
 
-    // Check if 2FA is enabled
-    if (user.twoFactorEnabled) {
-      setShowTwoFactor(true)
-      return
-    }
-
     // Login successful - check if user is already onboarded
     const { setOnboarded } = useStore.getState()
     const isAlreadyOnboarded = user.profilePic && user.interests && user.interests.length === 5 && user.gender && user.bio
-    
+
     loginUser(user)
     if (isAlreadyOnboarded) {
       setOnboarded(true)
@@ -63,40 +55,15 @@ const Login = () => {
     }
   }
 
-  const handleTwoFactorVerify = () => {
-    // Find user by email or username
-    const user = users.find(u => 
-      u.email.toLowerCase() === emailOrUsername.toLowerCase() || 
-      u.username.toLowerCase() === emailOrUsername.toLowerCase()
-    )
-    
-    // Mock 2FA verification (in real app, verify code from server)
-    if (twoFactorCode === '123456' || twoFactorCode === user.twoFactorCode) {
-      const { setOnboarded } = useStore.getState()
-      const isAlreadyOnboarded = user.profilePic && user.interests && user.interests.length === 5 && user.gender && user.bio
-      
-      loginUser(user)
-      if (isAlreadyOnboarded) {
-        setOnboarded(true)
-        navigate('/swipe')
-      } else {
-        setOnboarded(false)
-        navigate('/onboarding')
-      }
-    } else {
-      setError('Invalid verification code')
-    }
-  }
-
   return (
     <div className={`min-h-screen ${bgColor} ${textColor} px-6 py-8 flex items-center justify-center`}>
       <div className="max-w-md w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Log In</h1>
-          <p className="opacity-70">Welcome back to OpenTeens</p>
+          <p className="opacity-70">Use a test account created in this browser, or explore the demo from the home page.</p>
         </div>
 
-        {!showTwoFactor ? (
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">Email or Username</label>
@@ -138,50 +105,11 @@ const Login = () => {
               </Link>
             </p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-xl font-bold mb-2">Two-Step Verification</h2>
-              <p className="text-sm opacity-70 mb-4">
-                Enter the 6-digit code sent to your email
-              </p>
-              <input
-                type="text"
-                value={twoFactorCode}
-                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                maxLength={6}
-                className={`w-full py-3 px-4 rounded-lg ${inputBg} ${textColor} border-2 ${borderColor} text-center text-2xl tracking-widest`}
-              />
-            </div>
 
-            {error && (
-              <p className="text-red-500 text-sm">{error}</p>
-            )}
 
-            <button
-              onClick={handleTwoFactorVerify}
-              className="w-full py-3 px-6 rounded-lg bg-accent text-white font-medium"
-            >
-              Verify
-            </button>
-
-            <button
-              onClick={() => {
-                setShowTwoFactor(false)
-                setError('')
-              }}
-              className="w-full py-3 px-6 rounded-lg border-2 border-accent text-accent font-medium"
-            >
-              Back
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
 export default Login
-
-

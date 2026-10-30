@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import useStore from '../store/useStore'
+import { generateMatchMessage } from '../utils/mockData'
 
 const Profile = () => {
   const { userId } = useParams()
@@ -45,7 +46,6 @@ const Profile = () => {
       return
     }
     
-    const { generateMatchMessage } = require('../utils/mockData')
     addFriendRequest({
       id: `request-${Date.now()}`,
       user: profileUser,

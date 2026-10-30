@@ -41,6 +41,8 @@ const Chat = () => {
   const [audioChunks, setAudioChunks] = useState([])
   const messagesEndRef = useRef(null)
   const recordingTimerRef = useRef(null)
+  const recordingStartedRef = useRef(0)
+  const streamRef = useRef(null)
 
   const isDark = theme === 'dark'
   const bgColor = isDark ? 'bg-dark' : 'bg-white'
@@ -67,9 +69,7 @@ const Chat = () => {
       }
     }
 
-    if (availableMatches.length > 0 && !selectedChat) {
-      setSelectedChat(availableMatches[0])
-    } else if (selectedChat && blockedUsers.includes(selectedChat.id)) {
+    if (selectedChat && !availableMatches.some(m => m.id === selectedChat.id)) {
       setSelectedChat(null)
     }
   }, [matches, selectedChat, selectedChatUserId])
@@ -93,14 +93,19 @@ const Chat = () => {
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current)
       }
+      streamRef.current?.getTracks().forEach(track => track.stop())
     }
   }, [])
 
   const sendFinalMessage = (messageText) => {
     if (!messageText || !messageText.trim() || !selectedChat) return
+    if (useStore.getState().currentUser?.id !== currentUser?.id) return
 
+    if (!isCurrentMatch || !moderateMessage(messageText).isSafe) {
+      alert('This message cannot be sent. Check the connection and message content.'); return
+    }
     const message = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       text: messageText,
       sender: 'me',
       timestamp: new Date(),
@@ -123,11 +128,10 @@ const Chat = () => {
     if (isCorrecting) return
     if (showGrammarPopup) return
 
-    // Check if chat allowed
-    // if (!isCurrentMatch) {
-    //   alert('You can only message users who have accepted your friend request.')
-    //   return
-    // }
+    if (!isCurrentMatch) {
+      alert('Accept a friend request before chatting.')
+      return
+    }
 
     // Check ban
     const { checkBanStatus, addBanStrike } = useStore.getState()
@@ -163,83 +167,22 @@ const Chat = () => {
       return
     }
 
-    // AI grammar assistance path
-    let finalMessage = newMessage
-    if (aiGrammarAssist) {
-      console.log('[Chat] AI Grammar Assist is ENABLED')
-      setIsCorrecting(true)
-      try {
-        console.log('[Chat] Requesting AI grammar correction for:', newMessage)
-        console.log('[Chat] Calling getAiGrammarCorrection...')
-
-        const aiResult = await getAiGrammarCorrection(newMessage)
-
-        console.log('[Chat] ✅ AI result received:', aiResult)
-        console.log('[Chat] AI result type:', typeof aiResult)
-        console.log('[Chat] AI result keys:', aiResult ? Object.keys(aiResult) : 'null')
-
-        // Defensive checks: ensure aiResult is an object and has expected fields
-        if (!aiResult || typeof aiResult !== 'object') {
-          console.error('[Chat] ❌ Invalid AI result format:', aiResult)
-          setIsCorrecting(false)
-          // Continue with sending original message
-          sendFinalMessage(finalMessage)
-          return
-        }
-
-        const correctedText = aiResult.correctedText ? String(aiResult.correctedText).trim() : newMessage.trim()
-        const originalText = newMessage.trim()
-        const explanation = aiResult.explanation ? String(aiResult.explanation) : 'No explanation provided.'
-
-        // Show popup if corrected text differs from original (regardless of hasChanges flag)
-        const hasChanges = correctedText !== originalText
-
-        console.log('[Chat] Grammar check result:', {
-          hasChanges,
-          originalText,
-          correctedText,
-          explanationLength: explanation.length,
-          willShowPopup: hasChanges
-        })
-
-        if (hasChanges) {
-          console.log('[Chat] ✅ Showing grammar popup with changes')
-          setGrammarData({
-            original: newMessage,
-            corrected: correctedText,
-            explanation,
-            hasErrors: true
-          })
-          setShowGrammarPopup(true)
-          setIsCorrecting(false)
-          return // wait for user to choose Send Corrected or Send Original
-        } else {
-          console.log('[Chat] No changes detected, sending original message')
-          // No changes detected, send original message
-          finalMessage = newMessage
-        }
-      } catch (err) {
-        console.error('[Chat] ❌ AI grammar correction error:', err)
-        console.error('[Chat] Error stack:', err?.stack)
-        // Show error in popup for debugging
-        setGrammarData({
-          original: newMessage,
-          corrected: newMessage,
-          explanation: `Error: ${err?.message || String(err)}. Please check console for details.`,
-          hasErrors: false
-        })
+    if (!aiGrammarAssist) { sendFinalMessage(newMessage); return }
+    setIsCorrecting(true)
+    try {
+      const result = await getAiGrammarCorrection(newMessage)
+      if (result.correctedText.trim() === newMessage.trim()) {
+        sendFinalMessage(newMessage)
+      } else {
+        setGrammarData({ original: newMessage, corrected: result.correctedText, explanation: result.explanation })
         setShowGrammarPopup(true)
-        setIsCorrecting(false)
-        return
-      } finally {
-        setIsCorrecting(false)
       }
-    } else {
-      console.log('[Chat] AI Grammar Assist is DISABLED')
-    }
-
-    // If AI assist off or no change found, send directly
-    sendFinalMessage(finalMessage)
+    } catch (error) {
+      setGrammarData({ original: newMessage, corrected: newMessage,
+        explanation: error.name === 'TimeoutError' ? 'Grammar assistance timed out. You can send the original.' : error.message,
+        unavailable: true })
+      setShowGrammarPopup(true)
+    } finally { setIsCorrecting(false) }
   }
 
   const handleWordClick = (word, event) => {
@@ -257,7 +200,7 @@ const Chat = () => {
       'yes': 'sí',
       'no': 'no',
     }
-    const translation = translations[cleanWord] || `[${cleanWord}]`
+    const translation = translations[cleanWord] ? `Spanish: ${translations[cleanWord]}` : 'Not in the demo dictionary'
     setSelectedWord(word)
     setWordTranslation(translation)
     setWordPosition({ x: rect.left + rect.width / 2, y: rect.top - 30 })
@@ -282,7 +225,7 @@ const Chat = () => {
       const reason = prompt('Please describe the issue:')
       if (reason) {
         reportUser(selectedChat.id, reason)
-        alert('Thank you for reporting. We will review this report.')
+        alert('Report saved in this browser for demonstration. No review team is connected.')
         setShowSafetyMenu(false)
       }
     }
@@ -338,6 +281,9 @@ const Chat = () => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recordingOwnerId = currentUser.id
+      streamRef.current = stream
+      recordingStartedRef.current = Date.now()
       const recorder = new MediaRecorder(stream)
       const chunks = []
 
@@ -347,10 +293,12 @@ const Chat = () => {
         }
       }
 
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop())
+        if (useStore.getState().currentUser?.id !== recordingOwnerId) return
         const audioBlob = new Blob(chunks, { type: 'audio/webm' })
-        const audioUrl = URL.createObjectURL(audioBlob)
-        const duration = recordingDuration
+        const audioUrl = await new Promise(resolve => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.readAsDataURL(audioBlob) })
+        const duration = Math.round((Date.now() - recordingStartedRef.current) / 1000)
 
         const voiceMessage = {
           id: Date.now(),
@@ -376,7 +324,7 @@ const Chat = () => {
       setRecordingDuration(0)
 
       recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1)
+        setRecordingDuration(prev => { if (prev >= 59 && recorder.state === 'recording') { recorder.stop(); clearInterval(recordingTimerRef.current); setIsRecording(false) } return prev + 1 })
       }, 1000)
     } catch (error) {
       console.error('Error accessing microphone:', error)
@@ -552,7 +500,7 @@ const Chat = () => {
   const chatMessages = messages[selectedChat.id] || []
 
   return (
-    <div className={`min-h-screen ${bgColor} ${textColor} flex flex-col pb-24`}>
+    <div className={`min-h-[calc(100dvh-88px)] ${bgColor} ${textColor} flex flex-col pb-24 max-w-3xl mx-auto`}>
       <div className={`${chatBg} p-4 flex items-center gap-4 border-b-2 border-accent relative`}>
         <button onClick={() => setSelectedChat(null)} className="text-xl">
           ←
@@ -684,7 +632,7 @@ const Chat = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`${cardBg} rounded-lg border-2 border-accent max-w-2xl w-full max-h-[90vh] flex flex-col`}>
             <div className="flex items-center justify-between p-4 border-b-2 border-accent">
-              <h2 className="text-xl font-bold">✨ AI Grammar Review</h2>
+              <h2 className="text-xl font-bold">{grammarData.unavailable ? 'Grammar assistance unavailable' : '✨ AI Grammar Review'}</h2>
               <button
                 onClick={() => {
                   setShowGrammarPopup(false)
@@ -707,13 +655,14 @@ const Chat = () => {
               </div>
 
               <div className="mt-6">
-                <h3 className="text-lg font-bold mb-2 border-b pb-1">Detailed AI Explanation</h3>
+                <h3 className="text-lg font-bold mb-2 border-b pb-1">Explanation</h3>
                 <p className="text-sm whitespace-pre-wrap">{grammarData.explanation}</p>
               </div>
             </div>
 
             <div className="p-4 border-t-2 border-accent flex justify-end gap-3">
               <button
+                disabled={grammarData.unavailable}
                 onClick={() => sendFinalMessage(grammarData.corrected)}
                 className="px-4 py-2 rounded-lg bg-accent text-white font-medium hover:bg-opacity-90 transition"
               >
@@ -723,7 +672,7 @@ const Chat = () => {
                 onClick={() => sendFinalMessage(grammarData.original)}
                 className="px-4 py-2 rounded-lg border border-red-500 text-red-500 font-medium hover:bg-red-500 hover:bg-opacity-10 transition"
               >
-                Send Original Anyway
+                Send original
               </button>
             </div>
           </div>
@@ -738,19 +687,20 @@ const Chat = () => {
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder={isCorrecting ? "Checking grammar with AI..." : "Type a message..."}
-            disabled={isCorrecting || showGrammarPopup}
+            disabled={isCorrecting || showGrammarPopup || isRecording}
             className={`flex-1 py-2 px-4 rounded-lg ${inputBg} ${textColor} border ${borderColor} ${isCorrecting || showGrammarPopup ? 'opacity-50' : ''}`}
           />
           <button
             onClick={isRecording ? stopRecording : startRecording}
             className={`px-3 py-2 rounded-lg border-2 ${isRecording ? 'border-red-500 text-red-500' : 'border-accent text-accent'} font-medium`}
             disabled={isCorrecting || showGrammarPopup}
+            aria-label={isRecording ? 'Stop recording' : 'Record a voice message'}
           >
             {isRecording ? `Stop (${formatDuration(recordingDuration)})` : '🎤'}
           </button>
           <button
             onClick={handleSendMessage}
-            disabled={isCorrecting || showGrammarPopup}
+            disabled={isCorrecting || showGrammarPopup || isRecording}
             className="px-4 py-2 rounded-lg bg-accent text-white font-medium"
           >
             {isCorrecting ? "Checking..." : "Send"}

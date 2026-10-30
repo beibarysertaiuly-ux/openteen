@@ -10,8 +10,9 @@ const SwipeDeck = () => {
   const { theme } = useTheme()
   const {
     currentUser,
+    allUsers,
+    blockedUsers,
     getSwipeUsers,
-    addMatch,
     addFriendRequest,
     matches,
     sentFriendRequests,
@@ -21,15 +22,13 @@ const SwipeDeck = () => {
   
   const [currentIndex, setCurrentIndex] = useState(0)
   const [dragDirection, setDragDirection] = useState(null)
-  const [showMatchModal, setShowMatchModal] = useState(false)
-  const [matchedUser, setMatchedUser] = useState(null)
 
   const isDark = theme === 'dark'
   const bgColor = isDark ? 'bg-dark' : 'bg-white'
   const textColor = isDark ? 'text-white' : 'text-black'
   const cardBg = isDark ? 'bg-gray-800' : 'bg-gray-50'
 
-  // Get swipe users (only real users, no bots)
+  // Discover profiles registered in this browser, including labelled demo profiles.
   const swipeUsers = useMemo(() => {
     const users = getSwipeUsers()
     // Sort by shared interests
@@ -41,17 +40,16 @@ const SwipeDeck = () => {
       })
     }
     return users
-  }, [getSwipeUsers, currentUser])
+  }, [getSwipeUsers, currentUser, allUsers, blockedUsers, matches, sentFriendRequests])
 
-  // ✅ THIS is the ONLY correct place for currentUserCard
-  const currentUserCard = swipeUsers[currentIndex]
+  const currentUserCard = swipeUsers[currentIndex % Math.max(1, swipeUsers.length)]
 
   const handleSwipe = (direction) => {
     if (!currentUserCard) return
 
     if (direction === 'right') {
       // Heart icon always sends friend request - no immediate match
-      // Match only happens when the other person also sends a friend request
+      // A connection is created when the recipient accepts the request.
       if (!sentFriendRequests.includes(currentUserCard.id)) {
         addFriendRequest({
           id: `request-${Date.now()}`,
@@ -93,7 +91,7 @@ const SwipeDeck = () => {
     const reason = prompt('Please describe the issue:')
     if (reason) {
       reportUser(userId, reason)
-      alert('Thank you for reporting. We will review this report.')
+      alert('Report saved in this browser for demonstration. No review team is connected.')
       setCurrentIndex(prev => {
         const next = prev + 1
         return next >= swipeUsers.length ? prev : next
@@ -101,14 +99,13 @@ const SwipeDeck = () => {
     }
   }
 
-  // ❗ FIXED: No duplicate declaration here
 
   if (!currentUserCard || swipeUsers.length === 0) {
     return (
       <div className={`min-h-screen ${bgColor} ${textColor} flex items-center justify-center px-6 pb-24`}>
         <div className="text-center">
           <p className="text-xl mb-4">No users available</p>
-          <p className="opacity-70">Check back later for more matches.</p>
+          <p className="opacity-70">Try another demo role to accept a pending request, or reset the demo to start again.</p>
         </div>
       </div>
     )
@@ -119,9 +116,10 @@ const SwipeDeck = () => {
   return (
     <div className={`min-h-screen ${bgColor} ${textColor} px-6 py-8 pb-24`}>
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Discover</h1>
+        <h1 className="text-2xl font-bold mb-2">Discover</h1>
+        <p className="text-sm opacity-70 mb-6">Profiles with more shared interests appear first. Send a request to start a conversation.</p>
 
-        <div className="relative h-[600px] mb-8">
+        <div className="relative h-[480px] sm:h-[560px] mb-8">
           <AnimatePresence>
             <motion.div
               key={currentUserCard.id}
@@ -174,7 +172,7 @@ const SwipeDeck = () => {
                   <h2 className={`text-2xl font-bold mb-1 ${textColor}`}>
                     {currentUserCard.name}, {currentUserCard.age}
                   </h2>
-                  <p className={`text-sm opacity-70 mb-2 ${textColor}`}>{currentUserCard.country}</p>
+                  <p className={`text-sm opacity-70 mb-2 ${textColor}`}>{currentUserCard.location?.country || currentUserCard.country}</p>
                   <p className={`text-sm mb-3 ${textColor}`}>{currentUserCard.bio}</p>
 
                   {sharedInterests.length > 0 && (
@@ -202,12 +200,14 @@ const SwipeDeck = () => {
 
         <div className="flex justify-center gap-6">
           <button
+            aria-label="Skip profile"
             onClick={() => handleSwipe('left')}
             className={`w-16 h-16 rounded-full border-2 border-gray-400 flex items-center justify-center text-2xl ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} transition`}
           >
             ✕
           </button>
           <button
+            aria-label="Send friend request"
             onClick={() => handleSwipe('right')}
             className="w-16 h-16 rounded-full bg-accent flex items-center justify-center text-2xl text-white hover:opacity-90 transition"
           >
@@ -216,52 +216,7 @@ const SwipeDeck = () => {
         </div>
       </div>
 
-      {showMatchModal && matchedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-6">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className={`${cardBg} rounded-2xl p-6 max-w-sm w-full text-center border-2 border-accent`}
-          >
-            <h2 className="text-3xl font-bold mb-4">It's a Match! 🎉</h2>
-            <p className="mb-4 opacity-80">
-              {generateMatchMessage(currentUser, matchedUser)}
-            </p>
 
-            <div className="flex gap-4 mb-6">
-              <img
-                src={currentUser.profilePic}
-                alt={currentUser.name}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-              <img
-                src={matchedUser.profilePic}
-                alt={matchedUser.name}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setShowMatchModal(false)
-                  navigate('/chat')
-                }}
-                className="w-full py-3 px-6 rounded-lg bg-accent text-white font-medium"
-              >
-                Start Chatting
-              </button>
-
-              <button
-                onClick={() => setShowMatchModal(false)}
-                className={`w-full py-3 px-6 rounded-lg border-2 border-accent ${textColor} font-medium`}
-              >
-                Keep Swiping
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   )
 }

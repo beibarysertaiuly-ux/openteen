@@ -77,7 +77,7 @@ const Settings = () => {
             <div>
               <p className="font-medium">AI Grammar Assist</p>
               <p className="text-sm opacity-70">
-                Get private grammar corrections for your messages
+                When enabled, drafts are sent to Google Gemini for corrections. AI suggestions can be wrong.
               </p>
             </div>
             <button

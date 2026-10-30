@@ -46,8 +46,8 @@ const Report = () => {
     return (
       <div className={`min-h-screen ${bgColor} ${textColor} flex items-center justify-center px-6 pb-24`}>
         <div className={`${cardBg} rounded-lg p-6 text-center max-w-md w-full border-2 border-accent`}>
-          <p className="text-xl font-medium mb-2">Report submitted!</p>
-          <p className="opacity-70">Thank you for your report. We will review it.</p>
+          <p className="text-xl font-medium mb-2">Report saved locally</p>
+          <p className="opacity-70">Report saved in this browser. No review team is connected.</p>
         </div>
       </div>
     )

@@ -1,9 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import useStore from '../store/useStore'
 
 const BottomNav = () => {
   const location = useLocation()
   const { theme } = useTheme()
+  const { friendRequests } = useStore()
   
   const isDark = theme === 'dark'
   const bgColor = isDark ? 'bg-dark' : 'bg-white'
@@ -25,7 +27,12 @@ const BottomNav = () => {
           className={`flex flex-col items-center justify-center ${location.pathname === '/swipe' ? activeColor : textColor}`}
         >
           <span className="text-2xl">🔁</span>
-          <span className="text-xs mt-1">Swipe</span>
+          <span className="text-xs mt-1">Discover</span>
+        </Link>
+        <Link to="/friend-requests"
+          className={`flex flex-col items-center justify-center ${location.pathname === '/friend-requests' ? activeColor : textColor}`}>
+          <span className="text-2xl">✉️</span>
+          <span className="text-xs mt-1">Requests{friendRequests.length ? ` (${friendRequests.length})` : ''}</span>
         </Link>
         <Link 
           to="/settings" 

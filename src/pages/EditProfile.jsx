@@ -55,10 +55,10 @@ const EditProfile = () => {
   const getDaysUntilNameChange = () => {
     if (!lastUsernameChange) return 0
     const now = Date.now()
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000
+    const oneWeek = 7 * 24 * 60 * 60 * 1000
     const timeSince = now - lastUsernameChange
-    if (timeSince >= twoWeeks) return 0
-    return Math.ceil((twoWeeks - timeSince) / (24 * 60 * 60 * 1000))
+    if (timeSince >= oneWeek) return 0
+    return Math.ceil((oneWeek - timeSince) / (24 * 60 * 60 * 1000))
   }
 
   const handleProfilePicChange = async (file) => {

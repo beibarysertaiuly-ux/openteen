@@ -17,9 +17,10 @@ import EditProfile from './pages/EditProfile'
 import FriendRequests from './pages/FriendRequests'
 import BottomNav from './components/BottomNav'
 import FriendRequestNotification from './components/FriendRequestNotification'
+import PrototypeBanner from './components/PrototypeBanner'
 
 function App() {
-  const { isAuthenticated, isOnboarded } = useStore()
+  const { isAuthenticated, isOnboarded, currentUser } = useStore()
   const [showLogoSplash, setShowLogoSplash] = useState(true)
 
   useEffect(() => {
@@ -44,7 +45,8 @@ function App() {
     <ThemeProvider>
       <Router>
         <div className="min-h-screen">
-          <FriendRequestNotification />
+          <PrototypeBanner />
+          <FriendRequestNotification key={currentUser?.id || 'guest'} />
           <Routes>
             <Route 
               path="/login" 
@@ -174,6 +176,7 @@ function App() {
                 )
               } 
             />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </Router>

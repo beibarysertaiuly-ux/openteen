@@ -31,27 +31,22 @@ const FriendRequestNotification = () => {
 
   // Show popup for the latest unshown request
   useEffect(() => {
-    if (receivedRequests.length > 0 && !visibleRequestId) {
-      const latestRequest = receivedRequests[receivedRequests.length - 1]
-      setVisibleRequestId(latestRequest.id)
-      markFriendRequestPopupShown(latestRequest.id)
-      
-      // Auto-dismiss after 10 seconds
-      const timer = setTimeout(() => {
-        setIsDismissing(true)
-        setTimeout(() => {
-          setVisibleRequestId(null)
-          setIsDismissing(false)
-        }, 300) // Fade out animation
-      }, 10000)
-      
-      return () => clearTimeout(timer)
+    if (!visibleRequestId && receivedRequests.length) {
+      const request = receivedRequests[receivedRequests.length - 1]
+      setVisibleRequestId(request.id)
+      markFriendRequestPopupShown(request.id)
     }
-  }, [receivedRequests, visibleRequestId, markFriendRequestPopupShown])
+  }, [allFriendRequests, currentUser?.id, visibleRequestId])
 
-  if (receivedRequests.length === 0 || !visibleRequestId) return null
+  useEffect(() => {
+    if (!visibleRequestId) return
+    const timer = setTimeout(() => setVisibleRequestId(null), 10000)
+    return () => clearTimeout(timer)
+  }, [visibleRequestId])
 
-  const currentRequest = receivedRequests.find(r => r.id === visibleRequestId)
+  if (!visibleRequestId) return null
+
+  const currentRequest = allFriendRequests.find(r => r.id === visibleRequestId)
   if (!currentRequest) return null
   
   const sender = currentRequest.fromUser || currentRequest.user

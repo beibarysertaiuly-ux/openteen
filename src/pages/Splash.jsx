@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import useStore from '../store/useStore'
 
 const Splash = () => {
   const navigate = useNavigate()
@@ -16,6 +17,11 @@ const Splash = () => {
         <p className={`text-xl mb-12 ${textColor} opacity-80`}>Meet. Chat. Improve.</p>
         
         <div className="space-y-4 w-full max-w-xs">
+          <button onClick={() => { useStore.getState().startDemo(); navigate('/swipe') }}
+            className="w-full py-3 px-6 rounded-lg bg-accent text-white font-medium">
+            Explore the demo
+          </button>
+          <p className={`text-sm ${textColor} opacity-70`}>Try fictional profiles, interest-based discovery, and a sample chat. No account needed.</p>
           <button
             onClick={() => navigate('/signup')}
             className="w-full py-3 px-6 rounded-lg bg-accent text-white font-medium hover:opacity-90 transition"

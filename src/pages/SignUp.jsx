@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import useStore from '../store/useStore'
@@ -21,10 +21,8 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [age, setAge] = useState('')
   const [location, setLocation] = useState(null)
-  const [allowLocation, setAllowLocation] = useState(null) // null = not asked yet, true = allowed, false = denied
   const [selectedCountry, setSelectedCountry] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   // List of countries for manual selection
   const countries = [
@@ -35,96 +33,8 @@ const SignUp = () => {
     'South Africa', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Ghana', 'Tanzania', 'Ethiopia',
     'Russia', 'Turkey', 'Saudi Arabia', 'United Arab Emirates', 'Israel', 'Lebanon', 'Jordan', 'Qatar', 'Kuwait',
     'Ukraine', 'Romania', 'Czech Republic', 'Hungary', 'Bulgaria', 'Croatia', 'Serbia', 'Slovakia', 'Slovenia',
-    'Other'
+    'Kazakhstan', 'Other'
   ]
-
-  // Detect location only if user allows it
-  useEffect(() => {
-    if (allowLocation === true) {
-      detectLocation()
-    }
-  }, [allowLocation])
-
-  const detectLocation = async () => {
-    setLoading(true)
-    try {
-      // Try to get location from browser geolocation
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords
-            
-            // Use a free geocoding API to get location from coordinates
-            try {
-              const response = await fetch(
-                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-              )
-              const data = await response.json()
-              
-              const detectedLocation = {
-                country: data.countryName || 'Unknown',
-                city: data.city || data.locality || 'Unknown',
-                latitude,
-                longitude,
-              }
-              setLocation(detectedLocation)
-            } catch (geoError) {
-              // Fallback if geocoding fails
-              const fallbackLocation = {
-                country: 'Unknown',
-                city: 'Unknown',
-                latitude,
-                longitude,
-              }
-              setLocation(fallbackLocation)
-            }
-            setLoading(false)
-          },
-          async () => {
-            // If geolocation denied, try IP-based detection
-            try {
-              const response = await fetch('https://ipapi.co/json/')
-              const data = await response.json()
-              
-              const ipLocation = {
-                country: data.country_name || 'Unknown',
-                city: data.city || 'Unknown',
-                latitude: data.latitude || null,
-                longitude: data.longitude || null,
-              }
-              setLocation(ipLocation)
-            } catch (ipError) {
-              // If IP detection fails, user needs to select manually
-              setAllowLocation(false)
-            }
-            setLoading(false)
-          }
-        )
-      } else {
-        // Try IP-based detection if geolocation not available
-        try {
-          const response = await fetch('https://ipapi.co/json/')
-          const data = await response.json()
-          
-          const ipLocation = {
-            country: data.country_name || 'Unknown',
-            city: data.city || 'Unknown',
-            latitude: data.latitude || null,
-            longitude: data.longitude || null,
-          }
-          setLocation(ipLocation)
-        } catch (ipError) {
-          // If IP detection fails, user needs to select manually
-          setAllowLocation(false)
-        }
-        setLoading(false)
-      }
-    } catch (error) {
-      // Final fallback - let user select manually
-      setAllowLocation(false)
-      setLoading(false)
-    }
-  }
 
   const handleSignUp = () => {
     setError('')
@@ -169,7 +79,7 @@ const SignUp = () => {
 
     // Validate location
     if (!location || !location.country || location.country === 'Unknown') {
-      setError('Please allow location access or select your country manually')
+      setError('Please select a country')
       return
     }
 
@@ -183,8 +93,6 @@ const SignUp = () => {
       password, // In real app, this would be hashed
       age: ageNum,
       location: location || { country: 'Unknown', city: 'Unknown' },
-      twoFactorEnabled: false,
-      twoFactorCode: null,
       createdAt: Date.now(),
     }
 
@@ -197,7 +105,7 @@ const SignUp = () => {
       <div className="max-w-md w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Sign Up</h1>
-          <p className="opacity-70">Create your OpenTeens account</p>
+          <p className="opacity-70">Create a browser-local test account. Use sample details and a disposable password.</p>
         </div>
 
         <div className="space-y-4">
@@ -268,7 +176,7 @@ const SignUp = () => {
                   const val = e.target.value
                   const num = parseInt(val)
                   // Prevent entry if outside range
-                  if (val === '' || (!isNaN(num) && num >= 10 && num <= 19)) {
+                  if (val === '' || (/^\d{1,2}$/.test(val))) {
                     setAge(val)
                   }
                 }}
@@ -307,35 +215,8 @@ const SignUp = () => {
             </div>
           </div>
 
-          {/* Location permission section */}
-          {allowLocation === null && (
-            <div className={`p-4 rounded-lg ${inputBg} border-2 ${borderColor}`}>
-              <p className="text-sm font-medium mb-3">Location Access</p>
-              <p className="text-xs opacity-70 mb-4">
-                We need your location to help you find matches nearby. You can also choose your country manually.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setAllowLocation(true)
-                    setLoading(true)
-                  }}
-                  className="flex-1 py-2 px-4 rounded-lg bg-accent text-white font-medium hover:opacity-90 transition"
-                >
-                  Allow Location
-                </button>
-                <button
-                  onClick={() => setAllowLocation(false)}
-                  className="flex-1 py-2 px-4 rounded-lg border-2 border-accent text-accent font-medium hover:opacity-80 transition"
-                >
-                  Choose Manually
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Manual country selection */}
-          {allowLocation === false && (
+
             <div>
               <label className="block text-sm font-medium mb-2">Select Your Country</label>
               <select
@@ -349,7 +230,7 @@ const SignUp = () => {
                       latitude: null,
                       longitude: null,
                     })
-                  }
+                  } else { setLocation(null) }
                 }}
                 className={`w-full py-3 px-4 rounded-lg ${inputBg} ${textColor} border-2 ${borderColor}`}
               >
@@ -360,41 +241,8 @@ const SignUp = () => {
                   </option>
                 ))}
               </select>
-              <button
-                onClick={() => {
-                  setAllowLocation(null)
-                  setSelectedCountry('')
-                  setLocation(null)
-                }}
-                className="mt-2 text-sm text-accent hover:opacity-80 transition"
-              >
-                ← Use automatic detection instead
-              </button>
-            </div>
-          )}
 
-          {/* Detected location display */}
-          {allowLocation === true && location && (
-            <div className={`p-3 rounded-lg ${inputBg} border-2 ${borderColor}`}>
-              <p className="text-sm opacity-70">Detected Location:</p>
-              <p className="font-medium">{location.city}, {location.country}</p>
-              <button
-                onClick={() => {
-                  setAllowLocation(false)
-                  setLocation(null)
-                }}
-                className="mt-2 text-sm text-accent hover:opacity-80 transition"
-              >
-                Change to manual selection
-              </button>
             </div>
-          )}
-
-          {allowLocation === true && loading && (
-            <div className={`p-3 rounded-lg ${inputBg} border-2 ${borderColor}`}>
-              <p className="text-sm opacity-70">Detecting your location...</p>
-            </div>
-          )}
 
           {error && (
             <p className="text-red-500 text-sm">{error}</p>
@@ -402,10 +250,9 @@ const SignUp = () => {
 
           <button
             onClick={handleSignUp}
-            disabled={loading}
             className="w-full py-3 px-6 rounded-lg bg-accent text-white font-medium disabled:opacity-50"
           >
-            {loading ? 'Detecting location...' : 'Sign Up'}
+            Sign Up
           </button>
 
           <p className="text-center text-sm opacity-70">
